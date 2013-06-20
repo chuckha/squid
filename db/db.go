@@ -1,13 +1,13 @@
 package db
 
 import (
-	"log"
 	"labix.org/v2/mgo"
+	"log"
 )
 
 const (
-	mongoUrl = "localhost"
-	dbName = "squid"
+	mongoUrl   = "localhost"
+	dbName     = "squid"
 	collection = "websites"
 )
 
@@ -29,4 +29,3 @@ func GetCollection() *mgo.Collection {
 	session := GetSession()
 	return session.DB("").C(collection)
 }
-
