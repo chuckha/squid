@@ -40,4 +40,3 @@ func TestGetRobotsTxtUrl(t *testing.T) {
 		}
 	}
 }
-
