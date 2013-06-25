@@ -64,14 +64,14 @@ func (r *RobotsTxt) ParseRobots() {
 	for ; robots.Scan() ; {
 		text := robots.Text()
 		if strings.HasPrefix(text, "User-agent") {
-			currentUserAgent = strings.TrimSpace(strings.Split(text, ":")[1])
+			currentUserAgent = CleanInput(strings.Split(text, ":")[1])
 			rules[currentUserAgent] = make([]string, 0)
 		}
 		if strings.HasPrefix(text, "Disallow") {
 			if text == strings.TrimSpace("Disallow: /") && currentUserAgent == "*" {
 				r.DisallowAll = true
 			}
-			path := strings.TrimSpace(strings.Split(text, ":")[1])
+			path := CleanInput(strings.Split(text, ":")[1])
 			if len(path) > 0 {
 				rules[currentUserAgent] = append(rules[currentUserAgent], path)
 			}
@@ -80,13 +80,20 @@ func (r *RobotsTxt) ParseRobots() {
 	r.Rules = rules
 }
 
+func CleanInput(s string) string {
+	return strings.ToLower(strings.TrimSpace(s))
+}
+
 // Ask if a specific UserAgent and URL that it wants to crawl is an allowed action.
+// BUG(ChuckHa): Will fail when UserAgent: * and Disallow: / followed by UserAgent: Squidbot and Disallow: 
 func (r *RobotsTxt) Allowed(ua, rawurl string) bool {
+	ua = CleanInput(ua)
 	parsedUrl, _ := url.Parse(rawurl)
 
 	if r.DisallowAll { return false }
 	if r.AllowAll { return true }
 
+	// Check specific user agents first
 	userAgents := []string{ua, "*"}
 
 	// TODO: Implement Allowed rules

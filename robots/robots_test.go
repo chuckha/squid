@@ -13,6 +13,7 @@ const (
 	robotsText5 = "User-agent: *\nDisallow: /forums/post.txt\n"
 	robotsText6 = "User-agent: *\nDisallow: /help\n"
 	robotsText7 = "User-agent: *\nDisallow: /help/\n"
+	robotsText8 = "User-agent: squidbot\nDisallow: /new\n"
 )
 
 type RobotTxtTest struct {
@@ -23,6 +24,12 @@ type RobotTxtTest struct {
 }
 
 var tests = []RobotTxtTest{
+	{
+		userAgent,
+		robotsText8,
+		"/new",
+		false,
+	},
 	{
 		userAgent,
 		robotsText7,
@@ -127,11 +134,11 @@ func TestSimpleRobotsTxt(t *testing.T) {
 	}
 }
 
-type RobotsTxtUrlTests struct {
+type SimpleTestCase struct {
 	Given, Expected string
 }
 
-var robotsTxtUrlTests = []RobotsTxtUrlTests {
+var robotsTxtUrlTests = []SimpleTestCase {
 	{
 		"http://google.com",
 		"http://google.com/robots.txt",
@@ -155,4 +162,22 @@ func TestGetRobotsTxtUrl(t *testing.T) {
 	}
 }
 
+var cleanInputTests = []SimpleTestCase {
+	{
+		"    HI         \n\r\n\r\t\t\t",
+		"hi",
+	},
+	{
+		" \t\r\n\n HUllO!  \n",
+		"hullo!",
+	},
+}
 
+func TestCleanInput(t *testing.T) {
+	for _, test := range cleanInputTests {
+		got := CleanInput(test.Given)
+		if test.Expected != got {
+			t.Errorf("Expected: %v Got: %v", test.Expected, got)
+		}
+	}
+}
