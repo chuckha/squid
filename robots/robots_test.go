@@ -16,6 +16,18 @@ const (
 	robotsText8 = "User-agent: squidbot\nDisallow: /new\n"
 )
 
+// A helper method for testing.
+// Supply a base URL and the contents of robots.txt.
+func NewRobotsTxtFromText(rawurl, contents string) *RobotsTxt {
+	parsedUrl, _ := url.Parse(rawurl)
+	r := &RobotsTxt{
+		Url: parsedUrl,
+	}
+	r.contents = strings.NewReader(contents)
+	r.ParseRobots()
+	return r
+}
+
 type RobotTxtTest struct {
 	UserAgent string
 	Robotstxt string
@@ -138,7 +150,7 @@ type SimpleTestCase struct {
 	Given, Expected string
 }
 
-var robotsTxtUrlTests = []SimpleTestCase {
+var robotsTxtUrlTests = []SimpleTestCase{
 	{
 		"http://google.com",
 		"http://google.com/robots.txt",
@@ -162,7 +174,7 @@ func TestGetRobotsTxtUrl(t *testing.T) {
 	}
 }
 
-var cleanInputTests = []SimpleTestCase {
+var cleanInputTests = []SimpleTestCase{
 	{
 		"    HI         \n\r\n\r\t\t\t",
 		"hi",

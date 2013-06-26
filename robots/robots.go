@@ -3,18 +3,18 @@ package robots
 
 import (
 	"bufio"
-	"net/url"
-	"net/http"
-	"strings"
-	"log"
 	"io"
+	"log"
+	"net/http"
+	"net/url"
+	"strings"
 )
 
 type RobotsTxt struct {
 	DisallowAll, AllowAll bool
 	// User-agents to disallowed URLs
-	Rules map[string][]string
-	Url *url.URL
+	Rules    map[string][]string
+	Url      *url.URL
 	contents io.Reader
 }
 
@@ -25,18 +25,6 @@ func NewRobotsTxtFromUrl(rawurl string) *RobotsTxt {
 	}
 	robotsUrl := GetRobotsTxtUrl(rawurl)
 	r.GetRobotsTxtFromUrl(robotsUrl)
-	r.ParseRobots()
-	return r
-}
-
-// A helper method for testing.
-// Supply a base URL and the contents of robots.txt.
-func NewRobotsTxtFromText(rawurl, contents string) *RobotsTxt {
-	parsedUrl, _ := url.Parse(rawurl)
-	r := &RobotsTxt{
-		Url: parsedUrl,
-	}
-	r.contents = strings.NewReader(contents)
 	r.ParseRobots()
 	return r
 }
@@ -61,7 +49,7 @@ func (r *RobotsTxt) ParseRobots() {
 	robots := bufio.NewScanner(r.contents)
 	robots.Split(bufio.ScanLines)
 	var currentUserAgent string
-	for ; robots.Scan() ; {
+	for robots.Scan() {
 		text := robots.Text()
 		if strings.HasPrefix(text, "User-agent") {
 			currentUserAgent = CleanInput(strings.Split(text, ":")[1])
@@ -85,13 +73,17 @@ func CleanInput(s string) string {
 }
 
 // Ask if a specific UserAgent and URL that it wants to crawl is an allowed action.
-// BUG(ChuckHa): Will fail when UserAgent: * and Disallow: / followed by UserAgent: Squidbot and Disallow: 
+// BUG(ChuckHa): Will fail when UserAgent: * and Disallow: / followed by UserAgent: Squidbot and Disallow:
 func (r *RobotsTxt) Allowed(ua, rawurl string) bool {
 	ua = CleanInput(ua)
 	parsedUrl, _ := url.Parse(rawurl)
 
-	if r.DisallowAll { return false }
-	if r.AllowAll { return true }
+	if r.DisallowAll {
+		return false
+	}
+	if r.AllowAll {
+		return true
+	}
 
 	// Check specific user agents first
 	userAgents := []string{ua, "*"}
@@ -113,10 +105,13 @@ func (r *RobotsTxt) Allowed(ua, rawurl string) bool {
 	return true
 }
 
+func (r *RobotsTxt) NotAllowed(ua, rawurl string) bool {
+	return !r.Allowed(ua, rawurl)
+}
+
 // GetRobotsTxtUrl returns the location of robots.txt given a URL
 // that points to somewhere on the server.
 func GetRobotsTxtUrl(rawurl string) string {
 	u, _ := url.Parse(rawurl)
 	return u.Scheme + "://" + u.Host + "/robots.txt"
 }
-
