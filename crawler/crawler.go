@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"code.google.com/p/go.net/html"
 	"github.com/ChuckHa/Squid/robots"
+	"github.com/ChuckHa/Squid/db"
 	"strings"
 	"log"
 	"io/ioutil"
@@ -15,11 +16,22 @@ const (
 	userAgent = "Squidbot"
 )
 
+var (
+	collection = db.GetCollection()
+)
+
+type Metadata struct {
+	Links, Keywords []string
+}
+
+func (m *Metadata) Save() error {
+	return collection.Insert(m)
+}
+
 type Crawler struct {
 	client *http.Client
 	userAgent, rawurl string
 	cURL chan *url.URL
-	links, keywords []string
 }
 
 func NewCrawler(userAgent, rawurl string, cURL chan *url.URL) *Crawler {
@@ -34,21 +46,21 @@ func NewCrawler(userAgent, rawurl string, cURL chan *url.URL) *Crawler {
 
 // Get the gatekeeper (robots.txt) from the site.
 // Get the HTML and parse it.
-// Save result to mongo.
-func (c *Crawler) Crawl() error {
+func (c *Crawler) Crawl() (*Metadata, error) {
+	md := &Metadata{}
 	gatekeeper := robots.NewRobotsTxtFromUrl(c.rawurl)
 	if gatekeeper.NotAllowed(c.userAgent, c.rawurl) {
-		return fmt.Errorf("Disallowed website from robots.txt")
+		return md, fmt.Errorf("Disallowed website from robots.txt")
 	}
 	content, err := c.GetHTML()
 	if err != nil {
-		return err
+		return md, err
 	}
 	links, keywords := Parse(content)
-	// TODO: Save to mongo
-	//err = mongo.Save()
 	log.Println(links, keywords)
-	return err
+	md.Links = links
+	md.Keywords = keywords
+	return md, err
 }
 
 // Attach our user agent to the headers and make the request.
