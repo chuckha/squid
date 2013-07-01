@@ -13,11 +13,12 @@ const (
 
 var (
 	session *mgo.Session
+	err error
 )
 
 func GetSession() *mgo.Session {
 	if session == nil {
-		session, err := mgo.Dial(mongoUrl)
+		session, err = mgo.Dial(mongoUrl)
 		if err != nil {
 			log.Printf("Error connecting to mongo: %s", err)
 		}

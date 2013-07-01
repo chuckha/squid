@@ -2,6 +2,8 @@ package robots
 
 import (
 	"testing"
+	"strings"
+	"net/url"
 )
 
 const (
