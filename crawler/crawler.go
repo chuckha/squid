@@ -2,10 +2,9 @@ package crawler
 
 import (
 	"fmt"
-	"net/url"
 	"net/http"
+	"net/url"
 	"code.google.com/p/go.net/html"
-	"github.com/ChuckHa/Squid/robots"
 	"github.com/ChuckHa/Squid/db"
 	"strings"
 	"log"
@@ -16,49 +15,58 @@ const (
 	userAgent = "Squidbot"
 )
 
-var (
-	collection = db.GetCollection()
-)
-
 type Metadata struct {
+	Site string
 	Links, Keywords []string
 }
 
 func (m *Metadata) Save() error {
-	return collection.Insert(m)
+	c := db.GetCollection()
+	defer c.Database.Session.Close()
+	return c.Insert(m)
 }
 
 type Crawler struct {
 	client *http.Client
 	userAgent, rawurl string
-	cURL chan *url.URL
 }
 
-func NewCrawler(userAgent, rawurl string, cURL chan *url.URL) *Crawler {
+func NewCrawler(userAgent, rawurl string) *Crawler {
 	client := &http.Client{}
 	return &Crawler{
 		client: client,
 		userAgent: userAgent,
 		rawurl: rawurl,
-		cURL: cURL,
 	}
 }
 
 // Get the gatekeeper (robots.txt) from the site.
 // Get the HTML and parse it.
 func (c *Crawler) Crawl() (*Metadata, error) {
-	md := &Metadata{}
-	gatekeeper := robots.NewRobotsTxtFromUrl(c.rawurl)
-	if gatekeeper.NotAllowed(c.userAgent, c.rawurl) {
-		return md, fmt.Errorf("Disallowed website from robots.txt")
+	resolver, _ := url.Parse(c.rawurl)
+	cleanUrl := resolver.Scheme + "://" + resolver.Host + "/" + resolver.Path
+
+	md := &Metadata{Site: cleanUrl}
+
+	if db.Exists(cleanUrl) {
+		return md, fmt.Errorf("Already visited")
 	}
+
 	content, err := c.GetHTML()
 	if err != nil {
 		return md, err
 	}
 	links, keywords := Parse(content)
-	log.Println(links, keywords)
-	md.Links = links
+	resolvedLinks := make([]string, len(links))
+	for i, link := range links {
+		if strings.HasPrefix(link, "http") {
+			resolvedLinks[i] = link
+			continue
+		}
+		ref, _ := url.Parse(link)
+		resolvedLinks[i] = resolver.ResolveReference(ref).String()
+	}
+	md.Links = resolvedLinks
 	md.Keywords = keywords
 	return md, err
 }
@@ -89,7 +97,10 @@ func (c *Crawler) GetHTML() (string, error) {
 func getLink(n *html.Node) string {
 	for _, a := range n.Attr {
 		if a.Key == "href" {
-			return a.Val
+			// don't get things like mailto: and javascript:void(0)
+			if strings.HasPrefix(a.Val, "http://") {
+				return a.Val
+			}
 		}
 	}
 	// blah

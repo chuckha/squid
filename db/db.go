@@ -2,6 +2,7 @@ package db
 
 import (
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"log"
 )
 
@@ -28,5 +29,15 @@ func GetSession() *mgo.Session {
 
 func GetCollection() *mgo.Collection {
 	session := GetSession()
-	return session.DB("").C(collection)
+	return session.DB(dbName).C(collection)
+}
+
+func Exists(url string) bool {
+	C := GetCollection()
+	defer C.Database.Session.Close()
+	count, err := C.Find(bson.M{"site": url}).Count()
+	if err != nil {
+		log.Printf("Error talking to mongo: %v", err)
+	}
+	return count >= 1
 }

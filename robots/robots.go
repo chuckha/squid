@@ -3,19 +3,25 @@ package robots
 
 import (
 	"bufio"
-	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
 )
 
+type Rules map[string][]string
+
+func (r Rules) Add(key, value string) {
+	r[key] = append(r[key], value)
+}
+
 type RobotsTxt struct {
 	DisallowAll, AllowAll bool
 	// User-agents to disallowed URLs
-	Rules    map[string][]string
+	Rules    Rules
 	Url      *url.URL
-	contents io.Reader
+	contents string
 }
 
 func NewRobotsTxtFromUrl(rawurl string) *RobotsTxt {
@@ -25,7 +31,7 @@ func NewRobotsTxtFromUrl(rawurl string) *RobotsTxt {
 	}
 	robotsUrl := GetRobotsTxtUrl(rawurl)
 	r.GetRobotsTxtFromUrl(robotsUrl)
-	r.ParseRobots()
+	r.Rules = GetRules(r.contents)
 	return r
 }
 
@@ -35,37 +41,33 @@ func (r *RobotsTxt) GetRobotsTxtFromUrl(robotsUrl string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	r.contents = resp.Body
+	// What have we learened? We must read it and close it!
+	body, _ := ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
+	r.contents = string(body)
 	if resp.StatusCode > 310 {
-		log.Println("Robots.txt not found")
+		log.Printf("Robots.txt not found for url %v", robotsUrl)
 		r.AllowAll = true
 	}
 }
 
-// Build a map of UserAgents => Rules.
-func (r *RobotsTxt) ParseRobots() {
-	rules := make(map[string][]string)
-	robots := bufio.NewScanner(r.contents)
-	robots.Split(bufio.ScanLines)
+func GetRules(contents string) Rules {
+	rules := make(Rules)
+	robotsText := bufio.NewScanner(strings.NewReader(contents))
 	var currentUserAgent string
-	for robots.Scan() {
-		text := robots.Text()
-		if strings.HasPrefix(text, "User-agent") {
-			currentUserAgent = CleanInput(strings.Split(text, ":")[1])
-			rules[currentUserAgent] = make([]string, 0)
-		}
-		if strings.HasPrefix(text, "Disallow") {
-			if text == strings.TrimSpace("Disallow: /") && currentUserAgent == "*" {
-				r.DisallowAll = true
-			}
-			path := CleanInput(strings.Split(text, ":")[1])
-			if len(path) > 0 {
-				rules[currentUserAgent] = append(rules[currentUserAgent], path)
-			}
+	for robotsText.Scan() {
+		text := CleanInput(robotsText.Text())
+		// Ignore comments
+		if strings.HasPrefix(text, "#") {
+			continue
+		} else if strings.HasPrefix(text, "user-agent") {
+			currentUserAgent = strings.TrimSpace(strings.Split(text, ":")[1])
+		} else if strings.HasPrefix(text, "disallow") {
+			path := strings.TrimSpace(strings.Split(text, ":")[1])
+			rules.Add(currentUserAgent, path)
 		}
 	}
-	r.Rules = rules
+	return rules
 }
 
 func CleanInput(s string) string {
@@ -78,15 +80,8 @@ func (r *RobotsTxt) Allowed(ua, rawurl string) bool {
 	ua = CleanInput(ua)
 	parsedUrl, _ := url.Parse(rawurl)
 
-	if r.DisallowAll {
-		return false
-	}
-	if r.AllowAll {
-		return true
-	}
-
 	// Check specific user agents first
-	userAgents := []string{ua, "*"}
+	userAgents := []string{"*", ua}
 
 	// TODO: Implement Allowed rules
 	for _, ua := range userAgents {

@@ -16,6 +16,22 @@ const (
 	robotsText6 = "User-agent: *\nDisallow: /help\n"
 	robotsText7 = "User-agent: *\nDisallow: /help/\n"
 	robotsText8 = "User-agent: squidbot\nDisallow: /new\n"
+	robotsText9 = `# block all spiders by default
+User-agent: *
+Disallow: /
+
+# but allow major ones
+User-agent: Googlebot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+User-Agent: msnbot
+Disallow: 
+
+User-agent: Baiduspider
+Disallow: /`
 )
 
 // A helper method for testing.
@@ -25,8 +41,8 @@ func NewRobotsTxtFromText(rawurl, contents string) *RobotsTxt {
 	r := &RobotsTxt{
 		Url: parsedUrl,
 	}
-	r.contents = strings.NewReader(contents)
-	r.ParseRobots()
+	r.contents = contents
+	r.Rules = GetRules(r.contents)
 	return r
 }
 
@@ -38,6 +54,12 @@ type RobotTxtTest struct {
 }
 
 var tests = []RobotTxtTest{
+	{
+		userAgent,
+		robotsText9,
+		"/",
+		false,
+	},
 	{
 		userAgent,
 		robotsText8,
@@ -136,7 +158,7 @@ var tests = []RobotTxtTest{
 	},
 }
 
-func TestSimpleRobotsTxt(t *testing.T) {
+func TestRobotsTxt(t *testing.T) {
 	url := "http://google.com/robots.txt"
 	for _, test := range tests {
 		robotsTxt := NewRobotsTxtFromText(url, test.Robotstxt)
@@ -192,6 +214,28 @@ func TestCleanInput(t *testing.T) {
 		got := CleanInput(test.Given)
 		if test.Expected != got {
 			t.Errorf("Expected: %v Got: %v", test.Expected, got)
+		}
+	}
+}
+var getRulesTests = []struct {
+	in string
+	out Rules
+}{
+	{
+		in: robotsText2,
+		out: Rules{"*": []string{"/",}},
+	},
+}
+
+func TestGetRules(t *testing.T) {
+	for _, test := range getRulesTests {
+		actual := GetRules(test.in)
+		for robot, rules := range test.out {
+			for i, rule := range actual[robot] {
+				if rule != rules[i] {
+					t.Errorf("Error")
+				}
+			}
 		}
 	}
 }
